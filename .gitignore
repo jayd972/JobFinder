@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+
+# Database
+*.db
+
+# Uploads (resume, etc.)
+uploads/
+
+# Exports
+exports/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Personal files
+Jay_Darji_Resume.pdf
+Test.xlsx
+test_links.py
+test_fixes.py
+check_gpu.py
+verify_gpu_usage.py

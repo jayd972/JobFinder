@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="JobFinder — Scan Workday career sites, filter for today's US jobs, and rank by resume match.">
+    <title>JobFinder — Workday Job Scanner</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <div class="app-container">
+
+        <!-- ── Header ─────────────────────────────────────────── -->
+        <header class="app-header">
+            <div class="app-logo">
+                <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="40" height="40" rx="10" fill="url(#g1)" />
+                    <path d="M12 28V16l8-6 8 6v12l-8-4-8 4z" fill="#fff" fill-opacity=".9" />
+                    <path d="M20 10l8 6v12l-8-4V10z" fill="#fff" fill-opacity=".6" />
+                    <defs>
+                        <linearGradient id="g1" x1="0" y1="0" x2="40" y2="40">
+                            <stop stop-color="#6366f1" />
+                            <stop offset="1" stop-color="#8b5cf6" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <h1 class="app-title">JobFinder</h1>
+            </div>
+            <p class="app-subtitle">Scan Workday boards · Filter Posted Today + USA · Rank by resume match</p>
+        </header>
+
+        <!-- ── Tab Navigation ─────────────────────────────────── -->
+        <nav class="tab-nav" id="tabNav">
+            <button class="tab-btn active" data-tab="companies" id="tabBtnCompanies">
+                <span class="tab-icon">📋</span>
+                <span class="tab-text">Companies</span>
+                <span class="tab-badge" id="companiesBadge" style="display:none">0</span>
+            </button>
+            <button class="tab-btn" data-tab="resume" id="tabBtnResume">
+                <span class="tab-icon">📄</span>
+                <span class="tab-text">Resume</span>
+                <span class="tab-badge" id="resumeBadge" style="display:none">✓</span>
+            </button>
+            <button class="tab-btn" data-tab="scanner" id="tabBtnScanner">
+                <span class="tab-icon">🔍</span>
+                <span class="tab-text">Scanner</span>
+            </button>
+            <button class="tab-btn" data-tab="results" id="tabBtnResults">
+                <span class="tab-icon">📊</span>
+                <span class="tab-text">Results</span>
+                <span class="tab-badge" id="resultsBadge" style="display:none">0</span>
+            </button>
+        </nav>
+
+        <!-- ══════════════════════════════════════════════════════
+         TAB 1: UPLOAD COMPANIES
+         ══════════════════════════════════════════════════════ -->
+        <div class="tab-content active" id="tab-companies">
+            <div class="card">
+                <h2 class="card-title">📋 Upload Company Spreadsheet</h2>
+                <p class="card-description">
+                    Upload an <strong>.xlsx</strong> file with columns: <em>company_name</em> and
+                    <em>workday_careers_url</em>.
+                    Optional columns: <em>note</em>, <em>preferred_keywords</em>.
+                </p>
+
+                <div class="upload-zone" id="companyUploadZone">
+                    <input type="file" id="companyFileInput" accept=".xlsx,.xls">
+                    <span class="upload-icon">📁</span>
+                    <p class="upload-text">Drop your spreadsheet here or click to browse</p>
+                    <p class="upload-hint">.xlsx format · Max 16 MB</p>
+                </div>
+
+                <div id="companyUploadStatus" style="margin-top:16px"></div>
+            </div>
+
+            <div class="card" id="companyPreviewCard" style="display:none">
+                <h2 class="card-title">✅ Loaded Companies</h2>
+                <div class="table-container">
+                    <table id="companyTable">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Company</th>
+                                <th>Workday URL</th>
+                                <th>Note</th>
+                            </tr>
+                        </thead>
+                        <tbody id="companyTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════
+         TAB 2: UPLOAD RESUME
+         ══════════════════════════════════════════════════════ -->
+        <div class="tab-content" id="tab-resume">
+            <div class="card">
+                <h2 class="card-title">📄 Upload Your Resume</h2>
+                <p class="card-description">
+                    Upload your resume as a <strong>PDF</strong>. We'll extract skills and sections to match against job
+                    descriptions.
+                </p>
+
+                <div class="upload-zone" id="resumeUploadZone">
+                    <input type="file" id="resumeFileInput" accept=".pdf">
+                    <span class="upload-icon">📎</span>
+                    <p class="upload-text">Drop your resume PDF here or click to browse</p>
+                    <p class="upload-hint">.pdf format</p>
+                </div>
+
+                <div id="resumeUploadStatus" style="margin-top:16px"></div>
+            </div>
+
+            <div class="card" id="resumePreviewCard" style="display:none">
+                <h2 class="card-title">✅ Resume Parsed</h2>
+                <div id="resumeSections"></div>
+                <div style="margin-top:16px">
+                    <h3 style="font-size:14px; font-weight:600; margin-bottom:8px; color:var(--text-secondary)">Detected
+                        Skills</h3>
+                    <div class="tag-list" id="resumeSkills"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════
+         TAB 3: RUN SCANNER
+         ══════════════════════════════════════════════════════ -->
+        <div class="tab-content" id="tab-scanner">
+            <!-- ── Job Titles Configuration ── -->
+            <div class="card" id="jobTitlesCard">
+                <h2 class="card-title">🎯 Target Job Titles</h2>
+                <p class="card-description">
+                    Only jobs matching these titles will appear in results. One title per line.
+                    Matching is smart — e.g. "Machine Learning Engineer" also matches "Senior Machine Learning
+                    Engineer".
+                </p>
+
+                <textarea id="jobTitlesInput" rows="8" style="
+                width:100%; background:var(--bg-input); border:1px solid var(--border-subtle);
+                color:var(--text-primary); padding:12px 14px; border-radius:var(--radius-sm);
+                font-family:'Inter',sans-serif; font-size:13px; line-height:1.6;
+                resize:vertical; transition:var(--transition);
+            " placeholder="Enter job titles, one per line..."></textarea>
+
+                <div style="display:flex; gap:12px; align-items:center; margin-top:12px">
+                    <button class="btn btn-primary" id="saveJobTitlesBtn" onclick="saveJobTitles()">💾 Save
+                        Titles</button>
+                    <span id="jobTitlesSaveStatus" style="font-size:12px; color:var(--text-muted)"></span>
+                </div>
+
+                <div id="jobTitlesTagList" class="tag-list" style="margin-top:16px"></div>
+            </div>
+
+            <!-- ── Scanner Card ── -->
+            <div class="card">
+                <h2 class="card-title">🔍 Run Job Scanner</h2>
+                <p class="card-description">
+                    Scans all loaded Workday companies for jobs posted today in the USA, then ranks them against your
+                    resume.
+                </p>
+
+                <div id="scannerPreChecks" style="margin-bottom:20px">
+                    <div style="display:flex; gap:12px; align-items:center; margin-bottom:8px">
+                        <span id="checkCompanies" style="font-size:20px">⬜</span>
+                        <span style="font-size:13px" id="checkCompaniesText">Companies spreadsheet not loaded</span>
+                    </div>
+                    <div style="display:flex; gap:12px; align-items:center; margin-bottom:16px">
+                        <span id="checkResume" style="font-size:20px">⬜</span>
+                        <span style="font-size:13px" id="checkResumeText">Resume not uploaded</span>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary btn-lg" id="runScanBtn" disabled>
+                    <span id="runBtnIcon">🚀</span>
+                    <span id="runBtnText">Start Scanning</span>
+                </button>
+
+                <div id="runProgress" style="display:none; margin-top:24px">
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill" style="width:0%"></div>
+                        </div>
+                        <div class="progress-text" id="progressText">Starting...</div>
+                    </div>
+
+                    <div class="stats-row" id="runStats" style="margin-top:20px">
+                        <div class="stat-card">
+                            <div class="stat-value" id="statCompanies">0/0</div>
+                            <div class="stat-label">Companies</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="statFound">0</div>
+                            <div class="stat-label">Jobs Found</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="statMatched">0</div>
+                            <div class="stat-label">USA Matches</div>
+                        </div>
+                    </div>
+
+                    <div class="run-log" id="runLog"></div>
+                </div>
+
+                <div id="runComplete" style="display:none; margin-top:24px; text-align:center">
+                    <div style="font-size:48px; margin-bottom:12px" class="check-anim">✅</div>
+                    <h3 style="font-size:18px; margin-bottom:6px">Scan Complete!</h3>
+                    <p style="font-size:13px; color:var(--text-secondary)" id="runCompleteSummary"></p>
+                    <button class="btn btn-primary" style="margin-top:16px" onclick="switchTab('results')">View Results
+                        →</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════
+         TAB 4: RESULTS
+         ══════════════════════════════════════════════════════ -->
+        <div class="tab-content" id="tab-results">
+            <div class="filter-bar" id="filterBar">
+                <div class="filter-item">
+                    <label>Company</label>
+                    <input type="text" id="filterCompany" placeholder="All companies">
+                </div>
+                <div class="filter-item">
+                    <label>Keyword</label>
+                    <input type="text" id="filterKeyword" placeholder="Search titles & descriptions">
+                </div>
+                <div class="filter-item">
+                    <label>Min Score</label>
+                    <input type="number" id="filterScore" placeholder="0.0" min="0" max="1" step="0.05">
+                </div>
+                <div class="filter-item">
+                    <label>Location</label>
+                    <input type="text" id="filterLocation" placeholder="e.g. San Jose">
+                </div>
+                <div class="filter-item" style="display:flex; align-items:flex-end; gap:8px; min-width:auto">
+                    <button class="btn btn-primary" id="applyFiltersBtn" onclick="loadResults()">Apply</button>
+                    <button class="btn btn-secondary" id="exportBtn" onclick="exportResults()">📥 Export</button>
+                </div>
+            </div>
+
+            <div class="stats-row" id="resultsStats" style="display:none">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalResults">0</div>
+                    <div class="stat-label">Total Matches</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="avgScore">0</div>
+                    <div class="stat-label">Avg Score</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="topScore">0</div>
+                    <div class="stat-label">Top Score</div>
+                </div>
+            </div>
+
+            <div class="card" style="padding:0; overflow:hidden">
+                <div class="table-container" id="resultsTableContainer">
+                    <table id="resultsTable">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Company</th>
+                                <th>Title</th>
+                                <th>Location</th>
+                                <th>Posted</th>
+                                <th>Match Score</th>
+                                <th>Why Matched</th>
+                                <th>Link</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsTableBody"></tbody>
+                    </table>
+                </div>
+
+                <div class="empty-state" id="resultsEmpty">
+                    <div class="empty-icon">🔍</div>
+                    <h3>No results yet</h3>
+                    <p>Upload a company spreadsheet and resume, then run the scanner to see matched jobs here.</p>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /app-container -->
+
+    <!-- ── Toast Container ────────────────────────────────────── -->
+    <div id="toastContainer"></div>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════
+        // JobFinder Frontend Logic
+        // ═══════════════════════════════════════════════════════════
+
+        // ── Tab Switching ────────────────────────────────────────
+        const tabButtons = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        function switchTab(tabId) {
+            tabButtons.forEach(b => b.classList.remove('active'));
+            tabContents.forEach(c => c.classList.remove('active'));
+            document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+            if (tabId === 'results') loadResults();
+            if (tabId === 'scanner') checkPrereqs();
+        }
+
+        tabButtons.forEach(btn => {
+            btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+        });
+
+        // ── Toast Notifications ──────────────────────────────────
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `${type === 'success' ? '✅' : '❌'} ${message}`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
+        }
+
+        // ── Upload Helpers ───────────────────────────────────────
+        function setupDropZone(zoneId, inputId, handler) {
+            const zone = document.getElementById(zoneId);
+            const input = document.getElementById(inputId);
+
+            ['dragenter', 'dragover'].forEach(evt => {
+                zone.addEventListener(evt, e => { e.preventDefault(); zone.classList.add('dragover'); });
+            });
+            ['dragleave', 'drop'].forEach(evt => {
+                zone.addEventListener(evt, e => { e.preventDefault(); zone.classList.remove('dragover'); });
+            });
+            zone.addEventListener('drop', e => {
+                const files = e.dataTransfer.files;
+                if (files.length) handler(files[0]);
+            });
+            input.addEventListener('change', e => {
+                if (e.target.files.length) handler(e.target.files[0]);
+            });
+        }
+
+        // ── Company Upload ───────────────────────────────────────
+        function uploadCompanyFile(file) {
+            const status = document.getElementById('companyUploadStatus');
+            status.innerHTML = '<div class="spinner"></div> Uploading and parsing...';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/api/upload-companies', { method: 'POST', body: formData })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.error) {
+                        status.innerHTML = `<span class="status-badge error">❌ ${data.error}</span>`;
+                        showToast(data.error, 'error');
+                        return;
+                    }
+                    status.innerHTML = `<span class="status-badge success">✅ ${data.count} companies loaded</span>`;
+                    showToast(`${data.count} companies loaded successfully!`);
+
+                    // Show preview table
+                    const card = document.getElementById('companyPreviewCard');
+                    card.style.display = 'block';
+                    const tbody = document.getElementById('companyTableBody');
+                    tbody.innerHTML = '';
+                    data.companies.forEach((c, i) => {
+                        const tr = document.createElement('tr');
+                        const displayUrl = c.workday_url.length > 60 ? c.workday_url.substring(0, 57) + '...' : c.workday_url;
+                        tr.innerHTML = `
+                    <td>${i + 1}</td>
+                    <td><strong>${esc(c.company_name)}</strong></td>
+                    <td><a href="${esc(c.workday_url)}" target="_blank">${esc(displayUrl)}</a></td>
+                    <td>${esc(c.note || '—')}</td>
+                `;
+                        tbody.appendChild(tr);
+                    });
+
+                    // Update badge
+                    document.getElementById('companiesBadge').style.display = 'inline';
+                    document.getElementById('companiesBadge').textContent = data.count;
+
+                    checkPrereqs();
+                })
+                .catch(err => {
+                    status.innerHTML = `<span class="status-badge error">❌ Upload failed</span>`;
+                    showToast('Upload failed: ' + err.message, 'error');
+                });
+        }
+
+        setupDropZone('companyUploadZone', 'companyFileInput', uploadCompanyFile);
+
+        // ── Resume Upload ────────────────────────────────────────
+        function uploadResumeFile(file) {
+            const status = document.getElementById('resumeUploadStatus');
+            status.innerHTML = '<div class="spinner"></div> Extracting text and parsing sections...';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/api/upload-resume', { method: 'POST', body: formData })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.error) {
+                        status.innerHTML = `<span class="status-badge error">❌ ${data.error}</span>`;
+                        showToast(data.error, 'error');
+                        return;
+                    }
+                    status.innerHTML = `<span class="status-badge success">✅ Resume parsed · ${data.text_length} characters · ${data.sections.length} sections</span>`;
+                    showToast('Resume parsed successfully!');
+
+                    // Show preview
+                    const card = document.getElementById('resumePreviewCard');
+                    card.style.display = 'block';
+
+                    const sectionsDiv = document.getElementById('resumeSections');
+                    sectionsDiv.innerHTML = data.sections.map(s =>
+                        `<span class="status-badge success" style="margin:4px">${s}</span>`
+                    ).join('');
+
+                    const skillsDiv = document.getElementById('resumeSkills');
+                    skillsDiv.innerHTML = data.skills.map(s =>
+                        `<span class="tag">${esc(s)}</span>`
+                    ).join('');
+
+                    // Update badge
+                    document.getElementById('resumeBadge').style.display = 'inline';
+
+                    checkPrereqs();
+                })
+                .catch(err => {
+                    status.innerHTML = `<span class="status-badge error">❌ Upload failed</span>`;
+                    showToast('Upload failed: ' + err.message, 'error');
+                });
+        }
+
+        setupDropZone('resumeUploadZone', 'resumeFileInput', uploadResumeFile);
+
+        // ── Pre-requisite Checks ─────────────────────────────────
+        function checkPrereqs() {
+            fetch('/api/companies')
+                .then(r => r.json())
+                .then(data => {
+                    const has = data.companies && data.companies.length > 0;
+                    document.getElementById('checkCompanies').textContent = has ? '✅' : '⬜';
+                    document.getElementById('checkCompaniesText').textContent = has
+                        ? `${data.companies.length} companies loaded` : 'Companies spreadsheet not loaded';
+                    updateRunBtn();
+                });
+
+            fetch('/api/resume')
+                .then(r => r.json())
+                .then(data => {
+                    const has = data.resume != null;
+                    document.getElementById('checkResume').textContent = has ? '✅' : '⬜';
+                    document.getElementById('checkResumeText').textContent = has
+                        ? 'Resume uploaded and parsed' : 'Resume not uploaded';
+                    updateRunBtn();
+                });
+        }
+
+        function updateRunBtn() {
+            const c = document.getElementById('checkCompanies').textContent === '✅';
+            const r = document.getElementById('checkResume').textContent === '✅';
+            document.getElementById('runScanBtn').disabled = !(c && r);
+        }
+
+        // ── Run Scanner ──────────────────────────────────────────
+        let currentRunId = null;
+        let pollInterval = null;
+
+        document.getElementById('runScanBtn').addEventListener('click', () => {
+            const btn = document.getElementById('runScanBtn');
+            btn.disabled = true;
+            document.getElementById('runBtnText').textContent = 'Starting...';
+            document.getElementById('runBtnIcon').innerHTML = '<span class="spinner"></span>';
+            document.getElementById('runProgress').style.display = 'block';
+            document.getElementById('runComplete').style.display = 'none';
+            document.getElementById('runLog').innerHTML = '';
+
+            fetch('/api/run', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.error) {
+                        showToast(data.error, 'error');
+                        btn.disabled = false;
+                        document.getElementById('runBtnText').textContent = 'Start Scanning';
+                        document.getElementById('runBtnIcon').textContent = '🚀';
+                        return;
+                    }
+                    currentRunId = data.run_id;
+                    addLog(`Run started: ${currentRunId}`);
+                    pollInterval = setInterval(() => pollRunStatus(currentRunId), 1500);
+                })
+                .catch(err => {
+                    showToast('Failed to start scan: ' + err.message, 'error');
+                    btn.disabled = false;
+                    document.getElementById('runBtnText').textContent = 'Start Scanning';
+                    document.getElementById('runBtnIcon').textContent = '🚀';
+                });
+        });
+
+        function pollRunStatus(runId) {
+            fetch(`/api/run-status/${runId}`)
+                .then(r => r.json())
+                .then(data => {
+                    // Update progress
+                    const done = data.companies_done || 0;
+                    const total = data.total_companies || 1;
+                    const pct = Math.round((done / total) * 100);
+
+                    document.getElementById('progressFill').style.width = pct + '%';
+                    document.getElementById('progressText').textContent = data.phase || data.status || 'Running...';
+                    document.getElementById('statCompanies').textContent = `${done}/${total}`;
+                    document.getElementById('statFound').textContent = data.jobs_found || 0;
+                    document.getElementById('statMatched').textContent = data.jobs_returned || 0;
+
+                    if (data.phase && data.phase !== lastLogPhase) {
+                        addLog(data.phase);
+                        lastLogPhase = data.phase;
+                    }
+
+                    if (data.errors && data.errors.length > 0) {
+                        data.errors.forEach(e => {
+                            if (!loggedErrors.has(e)) {
+                                addLog(e, 'error');
+                                loggedErrors.add(e);
+                            }
+                        });
+                    }
+
+                    if (data.status === 'done' || data.status === 'error') {
+                        clearInterval(pollInterval);
+                        pollInterval = null;
+
+                        if (data.status === 'done') {
+                            document.getElementById('runProgress').style.display = 'none';
+                            document.getElementById('runComplete').style.display = 'block';
+                            document.getElementById('runCompleteSummary').textContent =
+                                `Found ${data.jobs_returned || 0} matching USA jobs from ${data.jobs_found || 0} posted today across ${total} companies.`;
+                            showToast(`Scan complete! ${data.jobs_returned || 0} jobs matched.`);
+
+                            document.getElementById('resultsBadge').style.display = 'inline';
+                            document.getElementById('resultsBadge').textContent = data.jobs_returned || 0;
+                        } else {
+                            showToast('Scan failed: ' + (data.phase || 'Unknown error'), 'error');
+                        }
+
+                        const btn = document.getElementById('runScanBtn');
+                        btn.disabled = false;
+                        document.getElementById('runBtnText').textContent = 'Start Scanning';
+                        document.getElementById('runBtnIcon').textContent = '🚀';
+                    }
+                })
+                .catch(err => console.error('Poll error:', err));
+        }
+
+        let lastLogPhase = '';
+        let loggedErrors = new Set();
+
+        function addLog(text, type = '') {
+            const log = document.getElementById('runLog');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry' + (type === 'error' ? ' error' : '');
+            const time = new Date().toLocaleTimeString();
+            entry.textContent = `[${time}] ${text}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // ── Results ──────────────────────────────────────────────
+        function loadResults() {
+            const params = new URLSearchParams();
+            const company = document.getElementById('filterCompany').value.trim();
+            const keyword = document.getElementById('filterKeyword').value.trim();
+            const minScore = document.getElementById('filterScore').value.trim();
+            const location = document.getElementById('filterLocation').value.trim();
+
+            // Scope results to the current run
+            if (currentRunId) params.set('run_id', currentRunId);
+            if (company) params.set('company', company);
+            if (keyword) params.set('keyword', keyword);
+            if (minScore) params.set('min_score', minScore);
+            if (location) params.set('location', location);
+
+            fetch(`/api/results?${params}`)
+                .then(r => r.json())
+                .then(data => {
+                    const results = data.results || [];
+                    const tbody = document.getElementById('resultsTableBody');
+                    const empty = document.getElementById('resultsEmpty');
+                    const stats = document.getElementById('resultsStats');
+
+                    if (results.length === 0) {
+                        tbody.innerHTML = '';
+                        empty.style.display = 'block';
+                        stats.style.display = 'none';
+                        document.getElementById('resultsTable').style.display = 'none';
+                        return;
+                    }
+
+                    empty.style.display = 'none';
+                    stats.style.display = 'grid';
+                    document.getElementById('resultsTable').style.display = 'table';
+
+                    // Stats
+                    document.getElementById('totalResults').textContent = results.length;
+                    const scores = results.map(r => r.match_score || 0);
+                    document.getElementById('avgScore').textContent = (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2);
+                    document.getElementById('topScore').textContent = Math.max(...scores).toFixed(2);
+
+                    // Table
+                    tbody.innerHTML = '';
+                    results.forEach((job, i) => {
+                        const score = (job.match_score || 0);
+                        const pct = Math.round(score * 100);
+                        const tier = score >= 0.6 ? 'high' : score >= 0.35 ? 'medium' : 'low';
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                    <td>${i + 1}</td>
+                    <td><strong>${esc(job.company_name || '')}</strong></td>
+                    <td>${esc(job.title || '')}</td>
+                    <td>${esc(job.locations_text || '')}</td>
+                    <td><span class="status-badge success">${esc(job.posted_label || 'Posted Today')}</span></td>
+                    <td>
+                        <div class="score-bar">
+                            <span class="score-value" style="color:var(--${tier === 'high' ? 'success' : tier === 'medium' ? 'warning' : 'error'})">${score.toFixed(2)}</span>
+                            <div class="score-fill-container">
+                                <div class="score-fill ${tier}" style="width:${pct}%"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td><span class="match-keywords">${esc(job.matched_keywords || '')}</span></td>
+                    <td>${job.job_url ? `<a href="${esc(job.job_url)}" target="_blank">Apply →</a>` : '—'}</td>
+                `;
+                        tbody.appendChild(tr);
+                    });
+                })
+                .catch(err => {
+                    console.error('Results error:', err);
+                    showToast('Failed to load results', 'error');
+                });
+        }
+
+        // Allow Enter key in filter inputs
+        document.querySelectorAll('.filter-bar input').forEach(input => {
+            input.addEventListener('keydown', e => { if (e.key === 'Enter') loadResults(); });
+        });
+
+        // ── Export ────────────────────────────────────────────────
+        function exportResults() {
+            const params = new URLSearchParams();
+            const company = document.getElementById('filterCompany').value.trim();
+            const keyword = document.getElementById('filterKeyword').value.trim();
+            const minScore = document.getElementById('filterScore').value.trim();
+            const location = document.getElementById('filterLocation').value.trim();
+
+            if (company) params.set('company', company);
+            if (keyword) params.set('keyword', keyword);
+            if (minScore) params.set('min_score', minScore);
+            if (location) params.set('location', location);
+
+            window.location.href = `/api/export?${params}`;
+            showToast('Downloading export...');
+        }
+
+        // ── Escape HTML ──────────────────────────────────────────
+        function esc(s) {
+            if (!s) return '';
+            const el = document.createElement('span');
+            el.textContent = s;
+            return el.innerHTML;
+        }
+
+        // ── Init ─────────────────────────────────────────────────
+        checkPrereqs();
+        loadJobTitles();
+
+        // Load latest run on page load so results tab shows the right data
+        fetch('/api/latest-run').then(r => r.json()).then(data => {
+            if (data.run && data.run.run_id) {
+                currentRunId = data.run.run_id;
+                // Update badge with the count from the latest run
+                const returned = data.run.total_jobs_returned || 0;
+                if (returned > 0) {
+                    document.getElementById('resultsBadge').style.display = 'inline';
+                    document.getElementById('resultsBadge').textContent = returned;
+                }
+            }
+        });
+
+        // ── Job Titles Management ────────────────────────────────
+        function loadJobTitles() {
+            fetch('/api/job-titles')
+                .then(r => r.json())
+                .then(data => {
+                    const titles = data.titles || [];
+                    document.getElementById('jobTitlesInput').value = titles.join('\n');
+                    renderJobTitleTags(titles);
+                })
+                .catch(err => console.error('Failed to load job titles:', err));
+        }
+
+        function saveJobTitles() {
+            const text = document.getElementById('jobTitlesInput').value;
+            const titles = text.split('\n').map(t => t.trim()).filter(t => t.length > 0);
+
+            const status = document.getElementById('jobTitlesSaveStatus');
+            status.textContent = 'Saving...';
+            status.style.color = 'var(--text-muted)';
+
+            fetch('/api/job-titles', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ titles: titles }),
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.error) {
+                        status.textContent = '❌ ' + data.error;
+                        status.style.color = 'var(--error)';
+                        showToast(data.error, 'error');
+                        return;
+                    }
+                    status.textContent = `✅ ${data.count} titles saved`;
+                    status.style.color = 'var(--success)';
+                    showToast(`${data.count} job titles saved!`);
+                    renderJobTitleTags(data.titles);
+                    setTimeout(() => { status.textContent = ''; }, 3000);
+                })
+                .catch(err => {
+                    status.textContent = '❌ Save failed';
+                    status.style.color = 'var(--error)';
+                    showToast('Failed to save titles', 'error');
+                });
+        }
+
+        function renderJobTitleTags(titles) {
+            const container = document.getElementById('jobTitlesTagList');
+            container.innerHTML = titles.map(t =>
+                `<span class="tag">${esc(t)}</span>`
+            ).join('');
+        }
+
+        // Check if we have existing data on load
+        fetch('/api/companies').then(r => r.json()).then(data => {
+            if (data.companies && data.companies.length) {
+                document.getElementById('companiesBadge').style.display = 'inline';
+                document.getElementById('companiesBadge').textContent = data.companies.length;
+
+                const card = document.getElementById('companyPreviewCard');
+                card.style.display = 'block';
+                const tbody = document.getElementById('companyTableBody');
+                tbody.innerHTML = '';
+                data.companies.forEach((c, i) => {
+                    const tr = document.createElement('tr');
+                    const url = c.workday_url || '';
+                    const displayUrl = url.length > 60 ? url.substring(0, 57) + '...' : url;
+                    tr.innerHTML = `
+                <td>${i + 1}</td>
+                <td><strong>${esc(c.company_name)}</strong></td>
+                <td><a href="${esc(url)}" target="_blank">${esc(displayUrl)}</a></td>
+                <td>${esc(c.note || '—')}</td>
+            `;
+                    tbody.appendChild(tr);
+                });
+            }
+        });
+
+        fetch('/api/resume').then(r => r.json()).then(data => {
+            if (data.resume) {
+                document.getElementById('resumeBadge').style.display = 'inline';
+                const card = document.getElementById('resumePreviewCard');
+                card.style.display = 'block';
+
+                const sectionsDiv = document.getElementById('resumeSections');
+                const sections = data.resume.resume_sections || {};
+                sectionsDiv.innerHTML = Object.keys(sections).map(s =>
+                    `<span class="status-badge success" style="margin:4px">${s}</span>`
+                ).join('');
+
+                const skillsDiv = document.getElementById('resumeSkills');
+                const skills = data.resume.skills_list || [];
+                skillsDiv.innerHTML = skills.map(s => `<span class="tag">${esc(s)}</span>`).join('');
+            }
+        });
+    </script>
+</body>
+
+</html>
