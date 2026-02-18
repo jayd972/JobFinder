@@ -52,7 +52,7 @@ def upload_companies():
         return jsonify({"error": "No file provided"}), 400
 
     f = request.files["file"]
-    if not f.filename.endswith((".xlsx", ".xls")):
+    if not f.filename or not f.filename.endswith((".xlsx", ".xls")):
         return jsonify({"error": "File must be .xlsx"}), 400
 
     filepath = os.path.join(UPLOAD_DIR, "companies.xlsx")
@@ -86,7 +86,7 @@ def upload_resume():
         return jsonify({"error": "No file provided"}), 400
 
     f = request.files["file"]
-    if not f.filename.endswith(".pdf"):
+    if not f.filename or not f.filename.endswith(".pdf"):
         return jsonify({"error": "File must be .pdf"}), 400
 
     filepath = os.path.join(UPLOAD_DIR, "resume.pdf")
@@ -433,4 +433,5 @@ def export():
 
 if __name__ == "__main__":
     db.init_db()
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(debug=False, host="0.0.0.0", port=port)

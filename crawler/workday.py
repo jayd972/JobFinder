@@ -66,13 +66,14 @@ def _request_with_retry(method, url, **kwargs):
     kwargs.setdefault("timeout", REQUEST_TIMEOUT)
     kwargs.setdefault("headers", DEFAULT_HEADERS)
 
+    resp = None
     for attempt in range(MAX_RETRIES):
         try:
             resp = requests.request(method, url, **kwargs)
             resp.raise_for_status()
             return resp.json()
         except requests.exceptions.HTTPError as e:
-            if resp.status_code == 429 or resp.status_code >= 500:
+            if resp is not None and (resp.status_code == 429 or resp.status_code >= 500):
                 wait = (2 ** attempt) * 2
                 logger.warning(f"Retry {attempt+1}/{MAX_RETRIES} for {url} (HTTP {resp.status_code}), waiting {wait}s")
                 time.sleep(wait)

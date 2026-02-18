@@ -1,7 +1,10 @@
-Flask==3.1.0
-openpyxl==3.1.5
-pdfminer.six==20231228
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
 sentence-transformers==3.4.1
 scikit-learn==1.6.1
+Flask==3.1.0
+gunicorn==23.0.0
+openpyxl==3.1.5
+pdfminer.six==20231228
 requests==2.32.3
 beautifulsoup4==4.12.3

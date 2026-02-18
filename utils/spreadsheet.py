@@ -37,6 +37,8 @@ def import_companies(file_path):
     """
     wb = load_workbook(file_path, read_only=True)
     ws = wb.active
+    if ws is None:
+        raise ValueError("Spreadsheet has no active worksheet")
 
     # Read headers from first row
     headers = []
@@ -78,6 +80,8 @@ def export_results(jobs, file_path):
     """
     wb = Workbook()
     ws = wb.active
+    if ws is None:
+        raise ValueError("Could not create worksheet")
     ws.title = "Job Results"
 
     # Headers
@@ -105,15 +109,16 @@ def export_results(jobs, file_path):
         ])
 
     # Auto-width columns
-    for col in ws.columns:
+    from openpyxl.utils import get_column_letter
+    for col_idx, col_cells in enumerate(ws.columns, start=1):
         max_len = 0
-        col_letter = col[0].column_letter
-        for cell in col:
+        for cell in col_cells:
             try:
                 if cell.value:
                     max_len = max(max_len, len(str(cell.value)))
-            except:
+            except Exception:
                 pass
+        col_letter = get_column_letter(col_idx)
         ws.column_dimensions[col_letter].width = min(max_len + 2, 60)
 
     wb.save(file_path)
