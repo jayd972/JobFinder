@@ -196,18 +196,7 @@ def _fetch_one_detail(host, tenant, site, listing, today):
             logger.warning(f"Could not fetch detail for {listing['externalPath']}")
             return None
 
-        # Secondary date validation: verify startDate matches today
         start_date_str = detail.get("startDate")
-        if start_date_str:
-            try:
-                start_dt = datetime.fromisoformat(start_date_str)
-                if start_dt.date() != today:
-                    logger.info(
-                        f"Skipping {detail.get('title', '?')} — startDate {start_dt.date()} is not today ({today})"
-                    )
-                    return None
-            except (ValueError, TypeError):
-                pass  # If we can't parse, rely on postedOn label
 
         return {
             "title": detail.get("title", listing.get("title", "")),
