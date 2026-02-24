@@ -13,6 +13,7 @@ from crawler.workday import parse_workday_url, crawl_company
 from filters.keywords import is_relevant_job, DEFAULT_JOB_TITLES
 from filters.posted_today import is_posted_today
 from filters.usa import is_usa_job
+from filters.jd_extractors import extract_experience_years, extract_visa_sponsorship
 from matcher.resume_parser import extract_resume_text, parse_sections, extract_skills
 from matcher.scorer import score_job, score_jobs_batch
 from utils.spreadsheet import import_companies, export_results
@@ -21,6 +22,7 @@ from utils.spreadsheet import import_companies, export_results
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB max upload
+app.config["TEMPLATES_AUTO_RELOAD"] = True
 
 logging.basicConfig(
     level=logging.INFO,
@@ -245,6 +247,8 @@ def _scan_one_company(company, run_id, target_titles, resume_text, resume_skills
                 "jd_text": job.get("jd_text", ""),
                 "match_score": result["score"],
                 "matched_keywords": result["why"],
+                "experience_years": extract_experience_years(job.get("jd_text", "")),
+                "visa_sponsorship": extract_visa_sponsorship(job.get("jd_text", "")),
                 "run_id": run_id,
             })
 

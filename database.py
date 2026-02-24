@@ -43,6 +43,8 @@ def init_db():
             jd_text TEXT,
             match_score REAL,
             matched_keywords TEXT,
+            experience_years TEXT DEFAULT '--',
+            visa_sponsorship TEXT DEFAULT 'Unknown',
             first_seen TEXT NOT NULL,
             last_seen TEXT NOT NULL,
             run_id TEXT,
@@ -80,6 +82,19 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_jobs_run ON jobs(run_id);
     """)
     conn.commit()
+
+    # Migrations: add new columns to existing tables (safe to re-run)
+    migrations = [
+        "ALTER TABLE jobs ADD COLUMN experience_years TEXT DEFAULT '--'",
+        "ALTER TABLE jobs ADD COLUMN visa_sponsorship TEXT DEFAULT 'Unknown'",
+    ]
+    for sql in migrations:
+        try:
+            conn.execute(sql)
+            conn.commit()
+        except Exception:
+            pass  # Column already exists
+
     conn.close()
 
 
@@ -143,9 +158,11 @@ def upsert_job(job):
     existing = conn.execute("SELECT job_key FROM jobs WHERE job_key=?", (job["job_key"],)).fetchone()
     if existing:
         conn.execute("""
-            UPDATE jobs SET last_seen=?, posted_label=?, match_score=?, matched_keywords=?, run_id=?
+            UPDATE jobs SET last_seen=?, posted_label=?, match_score=?, matched_keywords=?,
+                experience_years=?, visa_sponsorship=?, run_id=?
             WHERE job_key=?
         """, (now, job.get("posted_label"), job.get("match_score"), job.get("matched_keywords"),
+              job.get("experience_years", "--"), job.get("visa_sponsorship", "Unknown"),
               job.get("run_id"), job["job_key"]))
         conn.commit()
         conn.close()
@@ -153,12 +170,14 @@ def upsert_job(job):
     else:
         conn.execute("""
             INSERT INTO jobs (job_key, company_id, title, locations_text, country_guess,
-                posted_label, job_url, jd_text, match_score, matched_keywords, first_seen, last_seen, run_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                posted_label, job_url, jd_text, match_score, matched_keywords,
+                experience_years, visa_sponsorship, first_seen, last_seen, run_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             job["job_key"], job["company_id"], job["title"], job.get("locations_text"),
             job.get("country_guess"), job.get("posted_label"), job.get("job_url"),
             job.get("jd_text"), job.get("match_score"), job.get("matched_keywords"),
+            job.get("experience_years", "--"), job.get("visa_sponsorship", "Unknown"),
             now, now, job.get("run_id"),
         ))
         conn.commit()
@@ -177,19 +196,23 @@ def upsert_jobs_batch(jobs):
             existing = conn.execute("SELECT job_key FROM jobs WHERE job_key=?", (job["job_key"],)).fetchone()
             if existing:
                 conn.execute("""
-                    UPDATE jobs SET last_seen=?, posted_label=?, match_score=?, matched_keywords=?, run_id=?
+                    UPDATE jobs SET last_seen=?, posted_label=?, match_score=?, matched_keywords=?,
+                        experience_years=?, visa_sponsorship=?, run_id=?
                     WHERE job_key=?
                 """, (now, job.get("posted_label"), job.get("match_score"), job.get("matched_keywords"),
+                      job.get("experience_years", "--"), job.get("visa_sponsorship", "Unknown"),
                       job.get("run_id"), job["job_key"]))
             else:
                 conn.execute("""
                     INSERT INTO jobs (job_key, company_id, title, locations_text, country_guess,
-                        posted_label, job_url, jd_text, match_score, matched_keywords, first_seen, last_seen, run_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        posted_label, job_url, jd_text, match_score, matched_keywords,
+                        experience_years, visa_sponsorship, first_seen, last_seen, run_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     job["job_key"], job["company_id"], job["title"], job.get("locations_text"),
                     job.get("country_guess"), job.get("posted_label"), job.get("job_url"),
                     job.get("jd_text"), job.get("match_score"), job.get("matched_keywords"),
+                    job.get("experience_years", "--"), job.get("visa_sponsorship", "Unknown"),
                     now, now, job.get("run_id"),
                 ))
         conn.commit()
