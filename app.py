@@ -175,8 +175,13 @@ def _scan_one_company(company, run_id, target_titles, resume_text, resume_skills
         def progress_cb(done, total, phase="listings"):
             _active_runs[run_id]["phase"] = f"{company_name}: {phase} {done}/{total}"
 
-        # Crawl company (parallel detail fetching inside)
-        jobs = crawl_company(host, tenant, site, progress_callback=progress_cb)
+        # Early title filter: applied BEFORE fetching job details (huge speedup)
+        def title_filter(job):
+            return is_relevant_job(job, target_titles=target_titles)
+
+        # Crawl company (parallel detail fetching inside, with early title filter)
+        jobs = crawl_company(host, tenant, site, progress_callback=progress_cb,
+                             title_filter_fn=title_filter)
         found = len(jobs)
 
         _active_runs[run_id]["jobs_found"] += found

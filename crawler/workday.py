@@ -218,17 +218,34 @@ def _fetch_one_detail(host, tenant, site, listing, today):
         return None
 
 
-def crawl_company(host, tenant, site, progress_callback=None):
+def crawl_company(host, tenant, site, progress_callback=None, title_filter_fn=None):
     """
     Full crawl pipeline for one company:
     1. Fetch all "Posted Today" listings
-    2. Fetch detail for each (in parallel)
-    3. Verify startDate is truly today
+    2. Early-filter by title (BEFORE fetching details — huge speedup)
+    3. Fetch detail for each matching listing (in parallel)
     4. Return enriched job dicts
+
+    Args:
+        title_filter_fn: optional callable(job_dict) -> bool.
+                         Applied to listing data (which includes 'title')
+                         BEFORE expensive detail API calls.
 
     Returns: list of enriched job dicts
     """
     listings = fetch_all_listings(host, tenant, site, progress_callback=progress_callback)
+
+    # Early title filter: skip detail fetching for irrelevant jobs
+    if title_filter_fn:
+        before = len(listings)
+        listings = [l for l in listings if title_filter_fn(l)]
+        skipped = before - len(listings)
+        if skipped:
+            logger.info(
+                f"Early title filter: {before} listings -> {len(listings)} relevant "
+                f"({skipped} skipped before detail fetch)"
+            )
+
     enriched = []
     today = date.today()
     total = len(listings)
@@ -250,3 +267,4 @@ def crawl_company(host, tenant, site, progress_callback=None):
                 progress_callback(done_count, total, phase="details")
 
     return enriched
+
